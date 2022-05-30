@@ -1,1 +1,3 @@
 test_lib
+kiss_fft.h
+libkissfft-float.a
