@@ -205,4 +205,116 @@ namespace librosa
 			}
 		}
 	}
+
+	namespace filters {
+		struct mel_arg {
+			int sr;
+			int n_fft;
+			int n_mels;
+			float fmin;
+			float fmax;
+			bool htk;
+			// string norm;
+			// ?? dtype;
+
+
+			mel_arg() {
+				n_mels = 128;
+				fmin = 0.0;
+				fmax = -1.0;
+				htk = false;
+				/*norm = "slaney";
+				dtype = np.float32;*/
+			}
+		};
+
+		vector<vector<float>> mel(mel_arg* arg)
+		{
+			int length = 1 + arg->n_fft / 2;
+			if (arg->fmax < 0.0)
+			{
+				arg->fmax = float(arg->sr) / 2.0;
+			}
+
+			vector<vector<float>> weights(arg->n_mels, vector<float>(length));
+
+			vector<float> fft_freqs(length);
+			for (int i = 0; i < length; i++)
+			{
+				fft_freqs[i] = float(arg->sr) / float(arg->n_fft) * float(i);
+			}
+
+			librosa::core::convert::mel_frequencies_arg mel_freq_arg;
+			mel_freq_arg.fmin = arg->fmin;
+			mel_freq_arg.fmax = arg->fmax;
+			mel_freq_arg.n_mels = arg->n_mels + 2;
+			mel_freq_arg.htk = arg->htk;
+			auto mel_f = librosa::core::convert::mel_frequencies(&mel_freq_arg);
+
+			vector<float> fdiff(mel_f.size() - 1);
+			for (int i = 0; i < fdiff.size(); i++)
+			{
+				fdiff[i] = mel_f[i + 1] - mel_f[i];
+			}
+
+			vector<vector<float>> ramps(mel_f.size(), vector<float>(fft_freqs.size()));
+			for (int i = 0; i < mel_f.size(); i++)
+			{
+				for (int j = 0; j < fft_freqs.size(); j++)
+				{
+					ramps[i][j] = mel_f[i] - fft_freqs[j];
+				}
+			}
+
+			auto lower = vector<float>(fft_freqs.size());
+			auto upper = vector<float>(fft_freqs.size());
+			for (int i = 0; i < arg->n_mels; i++)
+			{
+				for (int j = 0; j < lower.size(); j++)
+				{
+					lower[j] = -1 * ramps[i][j] / fdiff[i];
+				}
+
+				for (int j = 0; j < lower.size(); j++)
+				{
+					upper[j] = ramps[i + 2][j] / fdiff[i + 1];
+				}
+
+				// weights[i] = np.maximum(0, np.minimum(lower, upper));
+				for (int j = 0; j < lower.size(); j++)
+				{
+					auto lower_upper_minimum = 0.0;
+					if (lower[j] > upper[j])
+					{
+						lower_upper_minimum = upper[j];
+					}
+					else
+					{
+						lower_upper_minimum = lower[j];
+					}
+
+					if (lower_upper_minimum > 0.0)
+					{
+						weights[i][j] = lower_upper_minimum;
+					}
+					else
+					{
+						weights[i][j] = 0.0;
+					}
+				}
+			}
+
+
+			for (int i = 0; i < arg->n_mels; i++)
+			{
+				auto enorm = 2.0 / (mel_f[2 + i] - mel_f[i]);
+				for (int j = 0; j < length; j++)
+				{
+					weights[i][j] = enorm * weights[i][j];
+				}
+			}
+
+			return weights;
+		}
+	}
 }
