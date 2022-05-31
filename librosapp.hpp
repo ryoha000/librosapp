@@ -170,6 +170,38 @@ namespace librosa
 				}
 
 				return freqs;
+			}      
+
+			struct mel_frequencies_arg {
+				int n_mels;
+				float fmin;
+				float fmax;
+				bool htk;
+
+
+				mel_frequencies_arg() {
+					n_mels = 128;
+					fmin = 0.0;
+					fmax = 11025.0;
+					htk = false;
+				}
+			};
+
+			vector<float> mel_frequencies(mel_frequencies_arg* arg)
+			{
+				auto fmin_v = vector<float>(1, arg->fmin);
+				auto fmax_v = vector<float>(1, arg->fmax);
+				float min_mel = hz_to_mel(fmin_v, arg->htk)[0];
+				float max_mel = hz_to_mel(fmax_v, arg->htk)[0];
+
+				auto step = (max_mel - min_mel) / float(arg->n_mels - 1);
+				vector<float> mels = vector<float>(arg->n_mels);
+				for (int i = 0; i < arg->n_mels; i++)
+				{
+					mels[i] = min_mel + step * float(i);
+				}
+
+				return mel_to_hz(mels, arg->htk);
 			}
 		}
 	}
