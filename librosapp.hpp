@@ -368,4 +368,72 @@ namespace librosa
 			return weights;
 		}
 	}
+
+	namespace feature {
+		struct melspectrogram_arg {
+			vector<float> y;
+			int sr;
+			//vector<vector<float>> S;
+			int n_fft;
+			int n_mels;
+			int hop_length;
+			float power;
+			/*int win_length;
+			string window;
+			bool center;
+			string pad_mode;*/
+			bool htk;
+
+
+			melspectrogram_arg() {
+				sr = 22050;
+				n_fft = 2048;
+				n_mels = 128;
+				hop_length = 512;
+				power = 2.0;
+				htk = false;
+			}
+		};
+
+		vector<vector<float>> melspectrogram(melspectrogram_arg* arg)
+		{
+			librosa::core::spectrum::_spectrogram_arg spec_arg;
+			spec_arg.y = arg->y;
+			spec_arg.n_fft = arg->n_fft;
+			spec_arg.hop_length = arg->hop_length;
+			spec_arg.n_fft = arg->n_fft;
+			spec_arg.power = arg->power;
+
+			auto S = librosa::core::spectrum::_spectrogram(&spec_arg);
+			if (S.size() == 0)
+			{
+				return vector<vector<float>>();
+			}
+
+			librosa::filters::mel_arg mel_arg;
+			mel_arg.sr = arg->sr;
+			mel_arg.n_fft = arg->n_fft;
+			mel_arg.n_mels = arg->n_mels;
+			mel_arg.htk = arg->htk;
+
+			auto mel_basis = librosa::filters::mel(&mel_arg);
+
+			// return np.einsum("...ft,mf->...mt", S, mel_basis, optimize=True)
+			auto melspec = vector<vector<float>>(mel_basis.size(), vector<float>(S[0].size()));
+			for (int m = 0; m < mel_basis.size(); m++)
+			{
+				for (int t = 0; t < S[0].size(); t++)
+				{
+					float val = 0.0;
+					for (int f = 0; f < S.size(); f++)
+					{
+						val += S[f][t] * mel_basis[m][f];
+					}
+					melspec[m][t] = val;
+				}
+			}
+
+			return melspec;
+		}
+	}
 }
