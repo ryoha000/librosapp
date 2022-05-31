@@ -123,6 +123,28 @@ namespace librosa
 
 				return mel;
 			}
+
+			float mel_to_hz(float mel, bool htk = false)
+			{
+				if (htk)
+				{
+					return 700.0 * (powf(10.0, mel / 2595.0) - 1.0);
+				}
+
+				float f_min = 0.0;
+				float f_sp = 200.0 / 3;
+				float freq = f_min + f_sp * mel;
+
+				float min_log_hz = 1000.0;
+				float min_log_mel = (min_log_hz - f_min) / f_sp;
+				float logstep = logf(6.4) / 27.0;
+
+				if (mel >= min_log_mel) {
+					freq = min_log_hz * expf(logstep * (mel - min_log_mel));
+				}
+
+				return freq;
+			}
 		}
 	}
 }
