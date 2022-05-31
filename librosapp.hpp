@@ -66,12 +66,17 @@ namespace librosa
 		kiss_fft_cfg cfg = kiss_fft_alloc(arg->n_fft, false, 0, 0);
 
 		auto cols = (cx_in.size() - arg->n_fft) / arg->hop_length + 1;
-		auto result = vector<vector<kiss_fft_cpx>>(cols);
+		auto result = vector<vector<kiss_fft_cpx>>(cols, vector<kiss_fft_cpx>(arg->n_fft / 2 + 1));
 		for (int i = 0; i < cols; i++)
 		{
 			auto fft_result = vector<kiss_fft_cpx>(arg->n_fft);
 			auto start = i * arg->hop_length;
 			kiss_fft(cfg, &cx_in[start], fft_result.data());
+			for (int j = 0; j < arg->n_fft / 2 + 1; j++)
+			{
+				result[i][j].i = fft_result[j].i;
+				result[i][j].r = fft_result[j].r;
+			}
 			result[i] = fft_result;
 		}
 		auto res = transpose(result);
@@ -170,7 +175,7 @@ namespace librosa
 				}
 
 				return freqs;
-			}      
+			}
 
 			struct mel_frequencies_arg {
 				int n_mels;
@@ -202,6 +207,52 @@ namespace librosa
 				}
 
 				return mel_to_hz(mels, arg->htk);
+			}
+		}
+
+		namespace spectrum {
+			struct _spectrogram_arg {
+				vector<float> y;
+				//vector<float> S;
+				int n_fft;
+				int hop_length;
+				int power;
+				/*int win_length;
+				string window;
+				bool center;
+				string pad_mode;*/
+
+
+				_spectrogram_arg() {
+					n_fft = 2048;
+					hop_length = 512;
+					power = 1;
+				}
+			};
+
+			vector<vector<float>> _spectrogram(_spectrogram_arg* arg)
+			{
+				stft_arg s_arg;
+				s_arg.y = arg->y;
+				s_arg.n_fft = arg->n_fft;
+				s_arg.hop_length = arg->hop_length;
+
+				auto stft_result = stft(&s_arg);
+
+				auto spec = vector<vector<float>>(stft_result.size());
+				for (int i = 0; i < stft_result.size(); i++)
+				{
+					for (int j = 0; j < stft_result[i].size(); j++)
+					{
+						auto norm = sqrtf(
+							powf(stft_result[i][j].i, 2.0) * powf(stft_result[i][j].r, 2.0)
+						);
+
+						spec[i][j] = powf(norm, arg->power);
+					}
+				}
+
+				return spec;
 			}
 		}
 	}
