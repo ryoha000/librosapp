@@ -100,50 +100,76 @@ namespace librosa
 
 	namespace core {
 		namespace convert {
-			float hz_to_mel(float freq, bool htk = false)
+			vector<float> hz_to_mel(vector<float> freqs, bool htk = false)
 			{
+				vector<float> mels(freqs.size());
 				if (htk)
 				{
-					return 2595.0 * log10f(1.0 + freq / 700.0);
+					for (int i = 0; i < mels.size(); i++)
+					{
+						mels[i] = 2595.0 * log10f(1.0 + freqs[i] / 700.0);
+
+					}
+					return mels;
 				}
 
 				float fmin = 0.0;
 				float f_sp = 200.0 / 3;
 
-				float mel = (freq - fmin) / f_sp;
+				for (int i = 0; i < mels.size(); i++)
+				{
+					mels[i] = (freqs[i] - fmin) / f_sp;
+				}
 
 				float min_log_hz = 1000.0;
 				float min_log_mel = (min_log_hz - fmin) / f_sp;
 				float logstep = logf(6.4) / 27.0;
 
-				if (freq >= min_log_hz)
+				for (int i = 0; i < mels.size(); i++)
 				{
-					mel = min_log_mel + logf(freq / min_log_hz) / logstep;
+					if (freqs[i] >= min_log_hz)
+					{
+						mels[i] = min_log_mel + logf(freqs[i] / min_log_hz) / logstep;
+					}
 				}
 
-				return mel;
+				return mels;
 			}
 
-			float mel_to_hz(float mel, bool htk = false)
+			vector<float> mel_to_hz(vector<float> mels, bool htk = false)
 			{
+				vector<float> freqs(mels.size());
 				if (htk)
 				{
-					return 700.0 * (powf(10.0, mel / 2595.0) - 1.0);
+					for (int i = 0; i < mels.size(); i++)
+					{
+						freqs[i] = 700.0 * (powf(10.0, mels[i] / 2595.0) - 1.0);
+
+					}
+					return freqs;
 				}
 
 				float f_min = 0.0;
 				float f_sp = 200.0 / 3;
-				float freq = f_min + f_sp * mel;
+
+				for (int i = 0; i < mels.size(); i++)
+				{
+					freqs[i] = f_min + f_sp * mels[i];
+				}
 
 				float min_log_hz = 1000.0;
 				float min_log_mel = (min_log_hz - f_min) / f_sp;
 				float logstep = logf(6.4) / 27.0;
 
-				if (mel >= min_log_mel) {
-					freq = min_log_hz * expf(logstep * (mel - min_log_mel));
+				for (int i = 0; i < mels.size(); i++)
+				{
+					if (mels[i] >= min_log_mel)
+					{
+						freqs[i]= min_log_hz * expf(logstep * (mels[i] - min_log_mel));
+					}
 				}
 
-				return freq;
+				return freqs;
 			}
 		}
 	}
