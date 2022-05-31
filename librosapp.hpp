@@ -10,28 +10,28 @@ using std::string;
 
 constexpr float LIBROSA_PI = 3.14159265358979323846;
 
-struct stft_arg {
-	vector<float> y;
-	int n_fft;
-	int hop_length;
-	/*int win_length;
-	string window;
-	bool center;
-	string pad_mode;*/
-	
-
-	stft_arg() {
-		n_fft = 2048;
-		hop_length = -1;
-		/*win_length = -1;
-		window = "hann";
-		center = false;
-		pad_mode = "constant";*/
-	}
-};
-
 namespace librosa
 {	
+	struct stft_arg {
+		vector<float> y;
+		int n_fft;
+		int hop_length;
+		/*int win_length;
+		string window;
+		bool center;
+		string pad_mode;*/
+
+
+		stft_arg() {
+			n_fft = 2048;
+			hop_length = -1;
+			/*win_length = -1;
+			window = "hann";
+			center = false;
+			pad_mode = "constant";*/
+		}
+	};
+
 	vector<vector<kiss_fft_cpx>> stft(stft_arg* arg) {
 		if (arg->hop_length <= 0)
 		{
@@ -96,5 +96,33 @@ namespace librosa
 		}
 
 		return res;
+	}
+
+	namespace core {
+		namespace convert {
+			float hz_to_mel(float freq, bool htk = false)
+			{
+				if (htk)
+				{
+					return 2595.0 * log10f(1.0 + freq / 700.0);
+				}
+
+				float fmin = 0.0;
+				float f_sp = 200.0 / 3;
+
+				float mel = (freq - fmin) / f_sp;
+
+				float min_log_hz = 1000.0;
+				float min_log_mel = (min_log_hz - fmin) / f_sp;
+				float logstep = logf(6.4) / 27.0;
+
+				if (freq >= min_log_hz)
+				{
+					mel = min_log_mel + logf(freq / min_log_hz) / logstep;
+				}
+
+				return mel;
+			}
+		}
 	}
 }
