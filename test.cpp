@@ -1,6 +1,7 @@
 #include <float.h>
 
 #include <cassert>
+#include <chrono>
 #include <fstream>
 #include <iostream>
 
@@ -33,17 +34,19 @@ int main() {
 
   // stft test
   {
+    auto start = std::chrono::system_clock::now();
     librosa::stft_arg stft_arg;
     stft_arg.y = audio;
     stft_arg.n_fft = 512;
     stft_arg.hop_length = 128;
-    auto actual_stft = librosa::stft(&stft_arg);
+    auto actual_stft_complex = librosa::stft(&stft_arg);
+    auto actual_complex = librosa::convert_complex_matrix(actual_stft_complex);
     auto actual = vector<vector<float>>();
-    for (int i = 0; i < actual_stft.size(); i++) {
+    for (int i = 0; i < actual_complex.size(); i++) {
       actual.push_back(vector<float>());
-      for (int j = 0; j < actual_stft[i].size(); j++) {
-        actual[i].push_back(actual_stft[i][j].r);
-        actual[i].push_back(actual_stft[i][j].i);
+      for (int j = 0; j < actual_complex[i].size(); j++) {
+        actual[i].push_back(actual_complex[i][j].real());
+        actual[i].push_back(actual_complex[i][j].imag());
       }
     }
     auto expected = test_json["stft_512_128"].get<vector<vector<float>>>();
@@ -52,16 +55,22 @@ int main() {
     assert(is_equal_matrix(actual, expected));
 
     std::cout << "[SUCCESS] stft test has passed" << std::endl;
+    auto dur = std::chrono::system_clock::now() - start;
+    auto msec =
+        std::chrono::duration_cast<std::chrono::milliseconds>(dur).count();
+    std::cout << msec << " milli sec \n";
   }
 
   // _spectrum test
   {
+    auto start = std::chrono::system_clock::now();
     librosa::core::spectrum::_spectrogram_arg spec_arg;
     spec_arg.y = audio;
     spec_arg.n_fft = 512;
     spec_arg.hop_length = 128;
     spec_arg.power = 1.0;
-    auto actual = librosa::core::spectrum::_spectrogram(&spec_arg);
+    auto actual_mat = librosa::core::spectrum::_spectrogram(&spec_arg);
+    auto actual = librosa::convert_matrix(actual_mat);
     auto expected =
         test_json["_spectrum_512_128_1.0"].get<vector<vector<float>>>();
 
@@ -70,16 +79,22 @@ int main() {
     assert(is_equal_matrix(actual, expected));
 
     std::cout << "[SUCCESS] _spectrum test has passed" << std::endl;
+    auto dur = std::chrono::system_clock::now() - start;
+    auto msec =
+        std::chrono::duration_cast<std::chrono::milliseconds>(dur).count();
+    std::cout << msec << " milli sec \n";
   }
 
   // filters::mel test
   {
+    auto start = std::chrono::system_clock::now();
     librosa::filters::mel_arg mel_arg;
     mel_arg.sr = 16000;
     mel_arg.n_fft = 512;
     mel_arg.n_mels = 60;
 
-    auto actual = librosa::filters::mel(&mel_arg);
+    auto actual_mat = librosa::filters::mel(&mel_arg);
+    auto actual = librosa::convert_matrix(actual_mat);
     auto expected = test_json["mel_16000_512_60"].get<vector<vector<float>>>();
 
     assert(actual.size() == expected.size());
@@ -87,10 +102,15 @@ int main() {
     assert(is_equal_matrix(actual, expected));
 
     std::cout << "[SUCCESS] filters::mel test has passed" << std::endl;
+    auto dur = std::chrono::system_clock::now() - start;
+    auto msec =
+        std::chrono::duration_cast<std::chrono::milliseconds>(dur).count();
+    std::cout << msec << " milli sec \n";
   }
 
   // melspectrogram test
   {
+    auto start = std::chrono::system_clock::now();
     librosa::feature::melspectrogram_arg melspec_arg;
     melspec_arg.y = audio;
     melspec_arg.sr = 16000;
@@ -98,7 +118,8 @@ int main() {
     melspec_arg.hop_length = 128;
     melspec_arg.n_mels = 60;
 
-    auto actual = librosa::feature::melspectrogram(&melspec_arg);
+    auto actual_mat = librosa::feature::melspectrogram(&melspec_arg);
+    auto actual = librosa::convert_matrix(actual_mat);
     auto expected = test_json["melspectrogram_16000_512_60_128_2.0"]
                         .get<vector<vector<float>>>();
 
@@ -107,6 +128,10 @@ int main() {
     assert(is_equal_matrix(actual, expected));
 
     std::cout << "[SUCCESS] melspectrogram test has passed" << std::endl;
+    auto dur = std::chrono::system_clock::now() - start;
+    auto msec =
+        std::chrono::duration_cast<std::chrono::milliseconds>(dur).count();
+    std::cout << msec << " milli sec \n";
   }
 
   return 0;

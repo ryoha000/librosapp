@@ -1,0 +1,6 @@
+[submodule "eigen"]
+	path = eigen
+	url = https://gitlab.com/libeigen/eigen.git
+[submodule "kissfft"]
+	path = kissfft
+	url = https://github.com/mborgerding/kissfft.git
