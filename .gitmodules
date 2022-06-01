@@ -4,3 +4,6 @@
 [submodule "kissfft"]
 	path = kissfft
 	url = https://github.com/mborgerding/kissfft.git
+[submodule "LBFGSpp"]
+	path = LBFGSpp
+	url = https://github.com/yixuan/LBFGSpp.git
