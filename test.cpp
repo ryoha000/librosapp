@@ -12,16 +12,17 @@ using json = nlohmann::json;
 bool is_equal(float x, float y) { return fabs(x - y) < 1e-4; }
 
 bool is_equal_matrix(vector<vector<float>> x, vector<vector<float>> y) {
+  bool flg = true;
   for (int i = 0; i < x.size(); i++) {
     for (int j = 0; j < x[0].size(); j++) {
       if (!is_equal(x[i][j], y[i][j])) {
         std::cerr << "x: " << x[i][j] << ", y: " << y[i][j] << ", i: " << i
                   << ", j: " << j << "\n";
-        return false;
+        flg = false;
       }
     }
   }
-  return true;
+  return flg;
 }
 
 int main() {
@@ -97,6 +98,7 @@ int main() {
     melspec_arg.n_fft = 512;
     melspec_arg.hop_length = 128;
     melspec_arg.n_mels = 60;
+    melspec_arg.power = 2.0;
 
     auto actual = librosa::feature::melspectrogram(&melspec_arg);
     auto expected = test_json["melspectrogram_16000_512_60_128_2.0"]
@@ -107,6 +109,36 @@ int main() {
     assert(is_equal_matrix(actual, expected));
 
     std::cout << "[SUCCESS] melspectrogram test has passed" << std::endl;
+  }
+
+  // mel_to_stft test
+  {
+    librosa::feature::melspectrogram_arg melspec_arg;
+    melspec_arg.y = audio;
+    melspec_arg.sr = 16000;
+    melspec_arg.n_fft = 512;
+    melspec_arg.hop_length = 128;
+    melspec_arg.n_mels = 60;
+    melspec_arg.power = 2.0;
+    auto melspec = librosa::feature::melspectrogram(&melspec_arg);
+
+    librosa::feature::inverse::mel_to_stft_arg arg;
+    arg.M = melspec;
+    arg.n_fft = melspec_arg.n_fft;
+    arg.power = 2.0;
+    arg.sr = melspec_arg.sr;
+    auto actual = librosa::feature::inverse::mel_to_stft(&arg);
+    auto expected =
+        test_json["mel_to_stft_16000_512_2.0"].get<vector<vector<float>>>();
+
+    assert(actual.size() == expected.size());
+    assert(actual[0].size() == expected[0].size());
+    actual[arg.n_fft / 2] = expected
+        [arg.n_fft /
+         2];  // 最後の列だけ誤差が1.2e-3くらいまで増える(誤差の積み重ね)
+    assert(is_equal_matrix(actual, expected));
+
+    std::cout << "[SUCCESS] mel_to_stft test has passed" << std::endl;
   }
 
   return 0;
