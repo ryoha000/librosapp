@@ -15,8 +15,8 @@ The following functions are supported in this repository after end-to-end testin
 `$ git submodule update --init`
 
 ### 2. build kissfft
-This is done to build kissfft.  If you want to build by other methods, skip this step.
-**NOTE: If you are a Windows user, use an absolute path for `-v`option.**
+This is done to build kissfft.  If you want to build by other methods, skip this step.  
+**NOTE: If you are a Windows user, use an absolute path for `-v`option.**  
 `$ docker run -v C:\workspace\librosapp:/app -it gcc:12.1 bash /app/build_kissfft.sh`
 
 ### 3. Run sample code
