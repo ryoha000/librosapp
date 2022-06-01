@@ -389,6 +389,38 @@ vector<vector<float>> melspectrogram(melspectrogram_arg* arg) {
 
   return melspec;
 }
+
+namespace inverse {
+struct mel_to_stft_arg {
+  vector<vector<float>> M;
+  int sr;
+  int n_fft;
+  float power;
+
+  mel_to_stft_arg() {
+    sr = 22050;
+    n_fft = 2048;
+    power = 2.0;
+  }
+};
+
+vector<vector<float>> mel_to_stft(mel_to_stft_arg* arg) {
+  librosa::filters::mel_arg mel_arg;
+  mel_arg.sr = arg->sr;
+  mel_arg.n_fft = arg->n_fft;
+  mel_arg.n_mels = arg->M.size();
+  auto mel_basis = librosa::filters::mel(&mel_arg);
+
+  auto inv = librosa::util::nnls(mel_basis, arg->M);
+
+  for (int i = 0; i < inv.size(); i++) {
+    for (int j = 0; j < inv[i].size(); j++) {
+      inv[i][j] = powf(inv[i][j], 1.0 / arg->power);
+    }
+  }
+  return inv;
+}
+}  // namespace inverse
 }  // namespace feature
 
 namespace util {
