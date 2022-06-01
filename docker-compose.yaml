@@ -1,6 +1,6 @@
 version: '3'
 services:
-  gcc-cpp-sample:
+  test:
     image: 'gcc:12.1'
     volumes:
       - ./:/src
