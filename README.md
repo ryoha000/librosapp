@@ -70,7 +70,7 @@ You can run the sample code by executing `$ ./run_test.sh` or `$ docker-compose 
 ```
 
 ## related project
-[librosa](https://github.com/librosa/librosa)
-[kissfft](https://github.com/mborgerding/kissfft)
-[Eigen](https://gitlab.com/libeigen/eigen)
+[librosa](https://github.com/librosa/librosa)  
+[kissfft](https://github.com/mborgerding/kissfft)  
+[Eigen](https://gitlab.com/libeigen/eigen)  
 [LBFGSpp](https://github.com/yixuan/LBFGSpp)
