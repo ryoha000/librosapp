@@ -16,6 +16,140 @@ using std::vector;
 constexpr float LIBROSA_PI = 3.14159265358979323846;
 
 namespace librosa {
+namespace util {
+
+typedef double Scalar;
+typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
+
+class NNLS {
+ private:
+  int rows;
+  int cols;
+  Eigen::MatrixXd A;
+  Eigen::MatrixXd B;
+
+ public:
+  NNLS(int rows_, int cols_, Eigen::MatrixXd A_, Eigen::MatrixXd B_)
+      : rows(rows_), cols(cols_), A(A_), B(B_) {}
+  Scalar operator()(const Vector& x, Vector& grad) {
+    Eigen::MatrixXd f_x(rows, cols);
+    for (int i = 0; i < rows; i++) {
+      for (int j = 0; j < cols; j++) {
+        f_x(i, j) = x(i * cols + j);
+      }
+    }
+
+    // たぶんここで二乗誤差とってる
+    // diff = np.einsum("mf,...ft->...mt", A, x, optimize=True) - B
+    Eigen::MatrixXd diff(A.rows(), f_x.cols());
+    for (int m = 0; m < A.rows(); m++) {
+      for (int t = 0; t < f_x.cols(); t++) {
+        auto val = 0.0;
+        for (int f = 0; f < A.cols(); f++) {
+          val += A(m, f) * f_x(f, t);
+        }
+        diff(m, t) = val - B(m, t);
+      }
+    }
+
+    // usage of pow()
+    // https://stackoverflow.com/questions/36648744/how-to-calculate-matrix-power-using-eigen-library
+    Scalar value =
+        (1.0 / double(B.size())) * 0.5 *
+        diff.unaryExpr([](double d) { return std::pow(d, 2.0); }).sum();
+
+    // grad = (1 / B.size) * np.einsum("mf,...mt->...ft", A, diff)
+    Eigen::MatrixXd grad_mat(A.cols(), diff.cols());
+    Scalar grad_coef = (1.0 / double(B.size()));
+    for (int f = 0; f < A.cols(); f++) {
+      for (int t = 0; t < diff.cols(); t++) {
+        auto val = 0.0;
+        for (int m = 0; m < A.rows(); m++) {
+          val += A(m, f) * diff(m, t);
+        }
+        grad_mat(f, t) = grad_coef * val;
+      }
+    }
+
+    Eigen::Map<const Eigen::VectorXd> v(grad_mat.data(), grad_mat.size());
+    for (int i = 0; i < grad_mat.rows(); i++) {
+      for (int j = 0; j < grad_mat.cols(); j++) {
+        grad(i * grad_mat.cols() + j) = grad_mat(i, j);
+      }
+    }
+
+    return value;
+  }
+};
+
+Eigen::MatrixXd vec_to_matrix(vector<vector<float>> v) {
+  if (v.size() == 0) {
+    return Eigen::MatrixXd(0, 0);
+  }
+  Eigen::MatrixXd mat(v.size(), v[0].size());
+  for (int i = 0; i < v.size(); i++) {
+    for (int j = 0; j < v[i].size(); j++) {
+      mat(i, j) = v[i][j];
+    }
+  }
+  return mat;
+}
+
+vector<vector<float>> nnls(vector<vector<float>> A_vec,
+                           vector<vector<float>> B_vec) {
+  Eigen::MatrixXd A = vec_to_matrix(A_vec);
+  Eigen::MatrixXd B = vec_to_matrix(B_vec);
+
+  Eigen::MatrixXd A_pinv = A.completeOrthogonalDecomposition().pseudoInverse();
+  Eigen::MatrixXd x_init(A_pinv.rows(), B.cols());
+  for (int f = 0; f < A_pinv.rows(); f++) {
+    for (int t = 0; t < B.cols(); t++) {
+      auto val = 0.0;
+      for (int m = 0; m < A_pinv.cols(); m++) {
+        val += A_pinv(f, m) * B(m, t);
+      }
+      if (val > 0.0) {
+        x_init(f, t) = val;
+      } else {
+        x_init(f, t) = 0.0;
+      }
+    }
+  }
+  Vector x_init_v(x_init.size());
+  for (int i = 0; i < x_init.rows(); i++) {
+    for (int j = 0; j < x_init.cols(); j++) {
+      x_init_v(i * x_init.cols() + j) = x_init(i, j);
+    }
+  }
+
+  NNLS fun(x_init.rows(), x_init.cols(), A, B);
+
+  LBFGSBParam<Scalar> param;
+  param.m = A.cols();
+  param.epsilon = 1e-5;
+  param.max_iterations = 100;
+  param.max_linesearch = 50;
+
+  LBFGSBSolver<Scalar> solver(param);
+
+  // Variable bounds
+  Vector lb = Vector::Constant(x_init.size(), 0.0);
+  Vector ub =
+      Vector::Constant(x_init.size(), std::numeric_limits<Scalar>::infinity());
+
+  Scalar fx;
+  int niter = solver.minimize(fun, x_init_v, fx, lb, ub);
+
+  vector<vector<float>> best(x_init.rows(), vector<float>(x_init.cols()));
+  for (int i = 0; i < x_init.rows(); i++) {
+    for (int j = 0; j < x_init.cols(); j++) {
+      best[i][j] = x_init_v(i * x_init.cols() + j);
+    }
+  }
+  return best;
+}
+}  // namespace util
+
 struct stft_arg {
   vector<float> y;
   int n_fft;
@@ -422,139 +556,4 @@ vector<vector<float>> mel_to_stft(mel_to_stft_arg* arg) {
 }
 }  // namespace inverse
 }  // namespace feature
-
-namespace util {
-
-typedef double Scalar;
-typedef Eigen::Matrix<Scalar, Eigen::Dynamic, 1> Vector;
-
-class NNLS {
- private:
-  int rows;
-  int cols;
-  Eigen::MatrixXd A;
-  Eigen::MatrixXd B;
-
- public:
-  NNLS(int rows_, int cols_, Eigen::MatrixXd A_, Eigen::MatrixXd B_)
-      : rows(rows_), cols(cols_), A(A_), B(B_) {}
-  Scalar operator()(const Vector& x, Vector& grad) {
-    Eigen::MatrixXd f_x(rows, cols);
-    for (int i = 0; i < rows; i++) {
-      for (int j = 0; j < cols; j++) {
-        f_x(i, j) = x(i * cols + j);
-      }
-    }
-
-    // たぶんここで二乗誤差とってる
-    // diff = np.einsum("mf,...ft->...mt", A, x, optimize=True) - B
-    Eigen::MatrixXd diff(A.rows(), f_x.cols());
-    for (int m = 0; m < A.rows(); m++) {
-      for (int t = 0; t < f_x.cols(); t++) {
-        auto val = 0.0;
-        for (int f = 0; f < A.cols(); f++) {
-          val += A(m, f) * f_x(f, t);
-        }
-        diff(m, t) = val - B(m, t);
-      }
-    }
-
-    // usage of pow()
-    // https://stackoverflow.com/questions/36648744/how-to-calculate-matrix-power-using-eigen-library
-    Scalar value =
-        (1.0 / double(B.size())) * 0.5 *
-        diff.unaryExpr([](double d) { return std::pow(d, 2.0); }).sum();
-
-    // grad = (1 / B.size) * np.einsum("mf,...mt->...ft", A, diff)
-    Eigen::MatrixXd grad_mat(A.cols(), diff.cols());
-    Scalar grad_coef = (1.0 / double(B.size()));
-    for (int f = 0; f < A.cols(); f++) {
-      for (int t = 0; t < diff.cols(); t++) {
-        auto val = 0.0;
-        for (int m = 0; m < A.rows(); m++) {
-          val += A(m, f) * diff(m, t);
-        }
-        grad_mat(f, t) = grad_coef * val;
-      }
-    }
-
-    Eigen::Map<const Eigen::VectorXd> v(grad_mat.data(), grad_mat.size());
-    for (int i = 0; i < grad_mat.rows(); i++) {
-      for (int j = 0; j < grad_mat.cols(); j++) {
-        grad(i * grad_mat.cols() + j) = grad_mat(i, j);
-      }
-    }
-
-    return value;
-  }
-};
-
-Eigen::MatrixXd vec_to_matrix(vector<vector<float>> v) {
-  if (v.size() == 0) {
-    return Eigen::MatrixXd(0, 0);
-  }
-  Eigen::MatrixXd mat(v.size(), v[0].size());
-  for (int i = 0; i < v.size(); i++) {
-    for (int j = 0; j < v[i].size(); j++) {
-      mat(i, j) = v[i][j];
-    }
-  }
-  return mat;
-}
-
-vector<vector<float>> nnls(vector<vector<float>> A_vec,
-                           vector<vector<float>> B_vec) {
-  Eigen::MatrixXd A = vec_to_matrix(A_vec);
-  Eigen::MatrixXd B = vec_to_matrix(B_vec);
-
-  Eigen::MatrixXd A_pinv = A.completeOrthogonalDecomposition().pseudoInverse();
-  Eigen::MatrixXd x_init(A_pinv.rows(), B.cols());
-  for (int f = 0; f < A_pinv.rows(); f++) {
-    for (int t = 0; t < B.cols(); t++) {
-      auto val = 0.0;
-      for (int m = 0; m < A_pinv.cols(); m++) {
-        val += A_pinv(f, m) * B(m, t);
-      }
-      if (val > 0.0) {
-        x_init(f, t) = val;
-      } else {
-        x_init(f, t) = 0.0;
-      }
-    }
-  }
-  Vector x_init_v(x_init.size());
-  for (int i = 0; i < x_init.rows(); i++) {
-    for (int j = 0; j < x_init.cols(); j++) {
-      x_init_v(i * x_init.cols() + j) = x_init(i, j);
-    }
-  }
-
-  NNLS fun(x_init.rows(), x_init.cols(), A, B);
-
-  LBFGSBParam<Scalar> param;
-  param.m = A.cols();
-  param.epsilon = 1e-5;
-  param.max_iterations = 100;
-  param.max_linesearch = 50;
-
-  LBFGSBSolver<Scalar> solver(param);
-
-  // Variable bounds
-  Vector lb = Vector::Constant(x_init.size(), 0.0);
-  Vector ub =
-      Vector::Constant(x_init.size(), std::numeric_limits<Scalar>::infinity());
-
-  Scalar fx;
-  int niter = solver.minimize(fun, x_init_v, fx, lb, ub);
-
-  vector<vector<float>> best(x_init.rows(), vector<float>(x_init.cols()));
-  for (int i = 0; i < x_init.rows(); i++) {
-    for (int j = 0; j < x_init.cols(); j++) {
-      best[i][j] = x_init_v(i * x_init.cols() + j);
-    }
-  }
-  return best;
-}
-}  // namespace util
-
 }  // namespace librosa
