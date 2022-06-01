@@ -7,3 +7,6 @@
 [submodule "LBFGSpp"]
 	path = LBFGSpp
 	url = https://github.com/yixuan/LBFGSpp.git
+[submodule "json"]
+	path = json
+	url = https://github.com/nlohmann/json.git
