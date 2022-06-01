@@ -32,6 +32,25 @@ namespace librosa
 		}
 	};
 
+	vector<vector<kiss_fft_cpx>> transpose(vector<vector<kiss_fft_cpx>> v)
+	{
+		if (v.size() == 0) {
+			vector<vector<kiss_fft_cpx>> res(0, vector<kiss_fft_cpx>());
+			return res;
+		}
+
+		vector<vector<kiss_fft_cpx>> res(v[0].size(), vector<kiss_fft_cpx>());
+		for (int i = 0; i < v.size(); i++)
+		{
+			for (int j = 0; j < v[i].size(); j++)
+			{
+				res[j].push_back(v[i][j]);
+			}
+		}
+
+		return res;
+	}
+
 	vector<vector<kiss_fft_cpx>> stft(stft_arg* arg) {
 		if (arg->hop_length <= 0)
 		{
@@ -53,7 +72,6 @@ namespace librosa
 				cx_in[i].r = arg->y[i - arg->n_fft / 2];
 				cx_in[i].i = 0.0f;
 			}
-			cx_in[i];
 		}
 
 		auto hanning = vector<float>(arg->n_fft);
@@ -67,39 +85,26 @@ namespace librosa
 
 		auto cols = (cx_in.size() - arg->n_fft) / arg->hop_length + 1;
 		auto result = vector<vector<kiss_fft_cpx>>(cols, vector<kiss_fft_cpx>(arg->n_fft / 2 + 1));
-		for (int i = 0; i < cols; i++)
+		auto fft_input = vector<kiss_fft_cpx>(arg->n_fft);
+		auto fft_result = vector<kiss_fft_cpx>(arg->n_fft);
+		for (int col = 0; col < cols; col++)
 		{
-			auto fft_result = vector<kiss_fft_cpx>(arg->n_fft);
-			auto start = i * arg->hop_length;
-			kiss_fft(cfg, &cx_in[start], fft_result.data());
+			auto start = col * arg->hop_length;
+			for (int i = 0; i < arg->n_fft; i++)
+			{
+				fft_input[i].r = cx_in[start + i].r * hanning[i];
+				fft_input[i].i = 0.0f;
+			}
+			kiss_fft(cfg, fft_input.data(), fft_result.data());
 			for (int j = 0; j < arg->n_fft / 2 + 1; j++)
 			{
-				result[i][j].i = fft_result[j].i;
-				result[i][j].r = fft_result[j].r;
-			}
-			result[i] = fft_result;
-		}
-		auto res = transpose(result);
-		return res;
-	}
-
-	vector<vector<kiss_fft_cpx>> transpose(vector<vector<kiss_fft_cpx>> v)
-	{
-		vector<vector<kiss_fft_cpx>> res(0, vector<kiss_fft_cpx>());
-		if (v.size() == 0) {
-			vector<vector<kiss_fft_cpx>> res(0, vector<kiss_fft_cpx>());
-			return res;
-		}
-
-		vector<vector<kiss_fft_cpx>> res(v[0].size(), vector<kiss_fft_cpx>());
-		for (int i = 0; i < v.size(); i++)
-		{
-			for (int j = 0; j < v[i].size(); j++)
-			{
-				res[j].push_back(v[i][j]);
+				result[col][j].r = fft_result[j].r;
+				result[col][j].i = fft_result[j].i;
 			}
 		}
-
+		auto res = librosa::transpose(result);
+		
+		kiss_fft_free(cfg);
 		return res;
 	}
 
@@ -238,20 +243,23 @@ namespace librosa
 				s_arg.hop_length = arg->hop_length;
 
 				auto stft_result = stft(&s_arg);
+				if (stft_result.size() == 0)
+				{
+					return vector<vector<float>>();
+				}
 
-				auto spec = vector<vector<float>>(stft_result.size());
+				auto spec = vector<vector<float>>(stft_result.size(), vector<float>(stft_result[0].size()));
 				for (int i = 0; i < stft_result.size(); i++)
 				{
 					for (int j = 0; j < stft_result[i].size(); j++)
 					{
 						auto norm = sqrtf(
-							powf(stft_result[i][j].i, 2.0) * powf(stft_result[i][j].r, 2.0)
+							powf(stft_result[i][j].i, 2.0) + powf(stft_result[i][j].r, 2.0)
 						);
 
 						spec[i][j] = powf(norm, arg->power);
 					}
 				}
-
 				return spec;
 			}
 		}
