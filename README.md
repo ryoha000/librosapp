@@ -1,7 +1,7 @@
 # librosapp
 
 ## About
-This repository is a transplant of A by B.
+This repository is a transplant of librosa by C++.
 
 The following functions are supported in this repository after end-to-end testing.
 - librosa::stft
@@ -11,15 +11,15 @@ The following functions are supported in this repository after end-to-end testin
 
 
 ## Requirement
-1. install submodules
+### 1. install submodules
 `$ git submodule update --init`
 
-2. build kissfft
+### 2. build kissfft
 This is done to build kissfft.  If you want to build by other methods, skip this step.
 **NOTE: If you are a Windows user, use an absolute path for `-v`option.**
 `$ docker run -v C:\workspace\librosapp:/app -it gcc:12.1 bash /app/build_kissfft.sh`
 
-3. Run sample code
+### 3. Run sample code
 You can run the sample code by executing `$ ./run_test.sh` or `$ docker-compose up --build`
 
 ## Usage
@@ -71,3 +71,6 @@ You can run the sample code by executing `$ ./run_test.sh` or `$ docker-compose 
 
 ## related project
 [librosa](https://github.com/librosa/librosa)
+[kissfft](https://github.com/mborgerding/kissfft)
+[Eigen](https://gitlab.com/libeigen/eigen)
+[LBFGSpp](https://github.com/yixuan/LBFGSpp)
