@@ -3,8 +3,8 @@
 #include <cassert>
 #include <fstream>
 #include <iostream>
+#include <nlohmann/json.hpp>
 
-#include "json.hpp"
 #include "librosapp.hpp"
 
 using json = nlohmann::json;
