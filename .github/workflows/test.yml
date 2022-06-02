@@ -1,0 +1,23 @@
+name: C/C++ CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+    - name: build kissfft
+      run: cd kissfft && make KISSFFT_STATIC=1 all && mv libkissfft-float.a ../libkissfft-float.a && mv kiss_fft.h ../kiss_fft.h && cd ../
+    - name: build
+      run: g++ -std=c++17 -o test_lib test.cpp libkissfft-float.a -Ieigen -ILBFGSpp/include -Ijson/include
+    - name: test
+      run: ./test_lib
